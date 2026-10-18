@@ -276,7 +276,7 @@ export default function Contact() {
   return (
     <section
       id="contact"
-      className="relative w-full px-4 sm:px-6 md:px-10 lg:px-16 xl:px-20 py-10 sm:py-16 lg:py-20 scroll-mt-20 overflow-hidden"
+      className="relative w-full px-4 sm:px-6 md:px-10 lg:px-16 xl:px-20 py-10 scroll-mt-20 overflow-hidden"
     >
 
       <div className="mx-auto max-w-7xl">

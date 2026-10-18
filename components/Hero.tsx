@@ -9,7 +9,7 @@ export default function Hero() {
   return (
     <section
       id="home"
-      className="relative w-full px-4 sm:px-6 md:px-10 lg:px-16 xl:px-20 py-10 sm:py-16 lg:py-20 scroll-mt-20 overflow-hidden"
+      className="relative w-full px-4 sm:px-6 md:px-10 lg:px-16 xl:px-20 py-[53px] scroll-mt-20 overflow-hidden"
     >
       <div className="mx-auto max-w-7xl">
         <div className="flex flex-col-reverse lg:flex-row items-center justify-center gap-10 lg:gap-16">
