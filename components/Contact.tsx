@@ -85,7 +85,40 @@ export default function Contact() {
 
         const data = await response.json();
 
-        if (response.ok && (data.success === "true" || data.success === true)) {
+        if (!response.ok || (data.success !== "true" && data.success !== true)) {
+          throw new Error(
+            data.message || "Security verification failed. Please try again."
+          );
+        }
+
+        // Deliver message directly from client browser to FormSubmit (bypasses Cloudflare datacenter block on AWS/Vercel)
+        const recipient = (data.recipient as string) || "solamojamesmichael@gmail.com";
+        const forwardRes = await fetch(`https://formsubmit.co/ajax/${recipient}`, {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "application/json",
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            email: formData.email,
+            message: formData.message,
+            _subject: `Portfolio Message from ${formData.name}`,
+            _template: "table",
+            _captcha: "false",
+            _replyto: formData.email,
+          }),
+        });
+
+        const forwardText = await forwardRes.text();
+        let forwardData: Record<string, unknown> = {};
+        try {
+          forwardData = JSON.parse(forwardText);
+        } catch {
+          // ignore parsing error
+        }
+
+        if (forwardRes.ok && (forwardData.success === "true" || forwardData.success === true)) {
           setStatus("success");
           setShowSuccessToast(true);
           setFormData({ name: "", email: "", message: "" });
@@ -109,7 +142,8 @@ export default function Contact() {
           }, 6000);
         } else {
           throw new Error(
-            data.message || "Failed to send message. Please try again."
+            (forwardData.message as string) ||
+              "Failed to send message. Please try again or reach out directly at solamojamesmichael@gmail.com."
           );
         }
       } catch (err: unknown) {

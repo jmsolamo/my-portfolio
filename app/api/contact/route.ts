@@ -54,85 +54,22 @@ export async function POST(request: Request) {
       }
     }
 
-    // 2. Deliver message securely to FormSubmit using server-side environment variables
     const recipientEmail =
       process.env.CONTACT_EMAIL || "solamojamesmichael@gmail.com";
 
-    const origin =
-      request.headers.get("origin") ||
-      request.headers.get("referer") ||
-      "http://localhost:3000";
-    const referer =
-      request.headers.get("referer") ||
-      origin ||
-      "http://localhost:3000/";
-
-    const forwardRes = await fetch(
-      `https://formsubmit.co/ajax/${recipientEmail}`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Accept: "application/json",
-          Origin: origin,
-          Referer: referer,
-        },
-        body: JSON.stringify({
-          name,
-          email,
-          message,
-          _subject: `Portfolio Message from ${name}`,
-          _template: "table",
-          _captcha: "false",
-          _replyto: email,
-        }),
-      }
-    );
-
-    const responseText = await forwardRes.text();
-    let forwardData: Record<string, unknown> = {};
-    try {
-      forwardData = JSON.parse(responseText);
-    } catch {
-      console.error("Non-JSON response from FormSubmit:", responseText);
-      return Response.json(
-        {
-          success: false,
-          message:
-            "Form delivery service returned an invalid response. Please try again or email directly.",
-        },
-        { status: 502 }
-      );
-    }
-
-    if (
-      forwardRes.ok &&
-      (forwardData.success === "true" || forwardData.success === true)
-    ) {
-      return Response.json({
-        success: true,
-        message: "Message sent successfully!",
-      });
-    } else {
-      const errorMsg =
-        typeof forwardData.message === "string"
-          ? forwardData.message
-          : "Failed to send message. Please try again.";
-      console.warn("FormSubmit delivery rejected:", errorMsg);
-      return Response.json(
-        {
-          success: false,
-          message: errorMsg,
-        },
-        { status: 400 }
-      );
-    }
+    // 2. Deliver message: Return verification success so client can submit directly to FormSubmit
+    // (Bypasses Cloudflare WAF datacenter IP blocking on AWS/Vercel serverless functions)
+    return Response.json({
+      success: true,
+      message: "Security verification passed.",
+      recipient: recipientEmail,
+    });
   } catch (error) {
-    console.error("Contact API submission error:", error);
+    console.error("Contact API verification error:", error);
     return Response.json(
       {
         success: false,
-        message: "An unexpected error occurred. Please try again later.",
+        message: "An unexpected error occurred during verification. Please try again.",
       },
       { status: 500 }
     );
