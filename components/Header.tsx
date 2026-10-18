@@ -58,6 +58,15 @@ export default function Header() {
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  const handleMobileNavClick = (href: string) => {
+    const id = href.replace("#", "");
+    setActiveSection(id);
+    setMobileMenuOpen(false);
+    setTimeout(() => {
+      scrollToSection(href);
+    }, 60);
+  };
+
   return (
     <header className="sticky top-4 z-50 w-full px-3 sm:px-6 lg:px-8 flex flex-col items-center">
       <div className="mx-auto flex h-12 w-full max-w-7xl items-center justify-between rounded-full border border-zinc-700/20 dark:border-[#C1ED00]/20 bg-white/80 dark:bg-[#212125]/85 px-4 sm:px-7 shadow-sm backdrop-blur-md transition-colors duration-300">
@@ -68,9 +77,13 @@ export default function Header() {
             onClick={(e) => {
               if (window.location.pathname === "/") {
                 e.preventDefault();
-                scrollToSection("home");
+                setMobileMenuOpen(false);
+                setTimeout(() => {
+                  scrollToSection("home");
+                }, 60);
+              } else {
+                setMobileMenuOpen(false);
               }
-              setMobileMenuOpen(false);
             }}
             className="group text-base sm:text-lg font-bold tracking-tight text-foreground transition-opacity hover:opacity-90"
           >
@@ -169,7 +182,7 @@ export default function Header() {
 
       {/* Mobile Navigation Dropdown */}
       {mobileMenuOpen && (
-        <div className="md:hidden mt-2 w-full max-w-sm rounded-2xl border border-zinc-700/40 bg-[#212125]/95 p-3 shadow-2xl backdrop-blur-md animate-in fade-in slide-in-from-top-2 duration-200">
+        <div className="md:hidden absolute top-14 left-3 right-3 sm:left-6 sm:right-6 max-w-sm mx-auto rounded-2xl border border-zinc-700/40 bg-[#212125]/95 p-3 shadow-2xl backdrop-blur-md z-50">
           <nav className="flex flex-col space-y-1">
             {navLinks.map((link) => {
               const id = link.href.replace("#", "");
@@ -178,12 +191,8 @@ export default function Header() {
                 <button
                   key={link.name}
                   type="button"
-                  onClick={() => {
-                    setActiveSection(id);
-                    scrollToSection(link.href);
-                    setMobileMenuOpen(false);
-                  }}
-                  className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer ${isActive
+                  onClick={() => handleMobileNavClick(link.href)}
+                  className={`flex items-center justify-between px-4 py-2.5 rounded-xl text-sm font-medium transition-colors cursor-pointer touch-manipulation ${isActive
                       ? "bg-[#C1ED00]/15 text-[#C1ED00] font-semibold"
                       : "text-zinc-300 hover:text-[#C1ED00] hover:bg-zinc-800/50"
                     }`}

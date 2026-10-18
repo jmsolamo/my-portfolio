@@ -25,7 +25,8 @@ export function scrollToSection(targetIdOrHref: string) {
   // no content from the previous section peeks above the navbar.
   const rect = el.getBoundingClientRect();
   const headerOffset = 68;
-  const targetY = window.pageYOffset + rect.top - headerOffset;
+  const currentY = window.scrollY !== undefined ? window.scrollY : window.pageYOffset;
+  const targetY = currentY + rect.top - headerOffset;
 
   window.scrollTo({
     top: Math.max(0, targetY),
