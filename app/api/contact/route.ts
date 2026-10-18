@@ -89,7 +89,22 @@ export async function POST(request: Request) {
       }
     );
 
-    const forwardData = await forwardRes.json();
+    const responseText = await forwardRes.text();
+    let forwardData: Record<string, unknown> = {};
+    try {
+      forwardData = JSON.parse(responseText);
+    } catch {
+      console.error("Non-JSON response from FormSubmit:", responseText);
+      return Response.json(
+        {
+          success: false,
+          message:
+            "Form delivery service returned an invalid response. Please try again or email directly.",
+        },
+        { status: 502 }
+      );
+    }
+
     if (
       forwardRes.ok &&
       (forwardData.success === "true" || forwardData.success === true)
@@ -99,13 +114,17 @@ export async function POST(request: Request) {
         message: "Message sent successfully!",
       });
     } else {
+      const errorMsg =
+        typeof forwardData.message === "string"
+          ? forwardData.message
+          : "Failed to send message. Please try again.";
+      console.warn("FormSubmit delivery rejected:", errorMsg);
       return Response.json(
         {
           success: false,
-          message:
-            forwardData.message || "Failed to send message. Please try again.",
+          message: errorMsg,
         },
-        { status: 500 }
+        { status: 400 }
       );
     }
   } catch (error) {
