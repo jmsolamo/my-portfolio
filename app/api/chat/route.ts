@@ -9,6 +9,43 @@ import {
 import { sendToTelegram, formatChatNotification } from "@/lib/telegram";
 import { dbSaveMessage, dbIsIpBlocked, dbAddTelegramMessageId } from "@/lib/db-operations";
 
+// ─── Rate Limiter: 5 messages per minute per IP ───────────────
+const RATE_LIMIT = 5;
+const RATE_WINDOW_MS = 60 * 1000;
+const rateLimitMap = new Map<string, number[]>();
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const timestamps = rateLimitMap.get(ip) || [];
+  // Keep only timestamps within the window
+  const recent = timestamps.filter((t) => now - t < RATE_WINDOW_MS);
+  rateLimitMap.set(ip, recent);
+
+  if (recent.length >= RATE_LIMIT) {
+    return true;
+  }
+  recent.push(now);
+  return false;
+}
+
+// Clean up old entries every 5 minutes
+if (typeof globalThis !== "undefined") {
+  const g = globalThis as typeof globalThis & { __rateLimitCleanup?: ReturnType<typeof setInterval> };
+  if (!g.__rateLimitCleanup) {
+    g.__rateLimitCleanup = setInterval(() => {
+      const now = Date.now();
+      for (const [ip, timestamps] of rateLimitMap) {
+        const recent = timestamps.filter((t) => now - t < RATE_WINDOW_MS);
+        if (recent.length === 0) {
+          rateLimitMap.delete(ip);
+        } else {
+          rateLimitMap.set(ip, recent);
+        }
+      }
+    }, 5 * 60 * 1000);
+  }
+}
+
 export async function POST(request: Request) {
   try {
     const body = await request.json();
@@ -46,6 +83,14 @@ export async function POST(request: Request) {
       }
     } catch {
       // If DB is unavailable, allow the request to proceed
+    }
+
+    // Rate limit: 5 messages per minute per IP
+    if (isRateLimited(clientIp)) {
+      return Response.json(
+        { error: "You're sending messages too fast. Please wait a moment before trying again." },
+        { status: 429 },
+      );
     }
 
     const session = getOrCreateSession(sessionId);

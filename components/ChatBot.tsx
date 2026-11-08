@@ -195,11 +195,13 @@ export default function ChatBot() {
   const [isLoading, setIsLoading] = useState(false);
   const [sessionId, setSessionId] = useState<string>("");
   const [isOnline, setIsOnline] = useState(false);
+  const [cooldown, setCooldown] = useState(0);
 
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
   const pollIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const sendTimestamps = useRef<number[]>([]);
 
   const messagesRef = useRef(messages);
   messagesRef.current = messages;
@@ -372,7 +374,28 @@ export default function ChatBot() {
 
   const sendMessage = async () => {
     const trimmed = input.trim();
-    if (!trimmed || isLoading) return;
+    if (!trimmed || isLoading || cooldown > 0) return;
+
+    // Frontend rate limit: 5 messages per 60 seconds
+    const now = Date.now();
+    sendTimestamps.current = sendTimestamps.current.filter((t) => now - t < 60000);
+    if (sendTimestamps.current.length >= 5) {
+      // Calculate seconds until oldest message expires
+      const oldest = sendTimestamps.current[0];
+      const waitSec = Math.ceil((60000 - (now - oldest)) / 1000);
+      setCooldown(waitSec);
+      const timer = setInterval(() => {
+        setCooldown((prev) => {
+          if (prev <= 1) {
+            clearInterval(timer);
+            return 0;
+          }
+          return prev - 1;
+        });
+      }, 1000);
+      return;
+    }
+    sendTimestamps.current.push(now);
 
     const activeSessionId = sessionId || generateSessionId();
 
@@ -643,9 +666,9 @@ export default function ChatBot() {
                 value={input}
                 onChange={(e) => setInput(e.target.value)}
                 onKeyDown={handleKeyDown}
-                placeholder="Ask about James..."
+                placeholder={cooldown > 0 ? `Wait ${cooldown}s...` : "Ask about James..."}
                 rows={1}
-                disabled={isLoading}
+                disabled={isLoading || cooldown > 0}
                 className="flex-1 resize-none rounded-xl border border-zinc-200 dark:border-zinc-700 bg-white dark:bg-zinc-900 px-3.5 py-2.5 text-sm text-foreground placeholder:text-zinc-400 dark:placeholder:text-zinc-500 focus:border-[#C1ED00] focus:outline-none focus:ring-2 focus:ring-[#C1ED00]/20 transition-all disabled:opacity-50 no-scrollbar"
                 style={{ maxHeight: "100px" }}
                 onInput={(e) => {
@@ -657,22 +680,26 @@ export default function ChatBot() {
               <button
                 type="button"
                 onClick={sendMessage}
-                disabled={!input.trim() || isLoading}
+                disabled={!input.trim() || isLoading || cooldown > 0}
                 className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#C1ED00] text-[#212125] shadow-sm transition-all hover:scale-105 hover:bg-[#d4f533] active:scale-95 disabled:opacity-40 disabled:hover:scale-100 cursor-pointer disabled:cursor-not-allowed"
               >
-                <svg
-                  xmlns="http://www.w3.org/2000/svg"
-                  className="h-5 w-5"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth="2.5"
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                >
-                  <line x1="22" y1="2" x2="11" y2="13" />
-                  <polygon points="22 2 15 22 11 13 2 9 22 2" />
-                </svg>
+                {cooldown > 0 ? (
+                  <span className="text-xs font-bold">{cooldown}</span>
+                ) : (
+                  <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    className="h-5 w-5"
+                    viewBox="0 0 24 24"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="2.5"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  >
+                    <line x1="22" y1="2" x2="11" y2="13" />
+                    <polygon points="22 2 15 22 11 13 2 9 22 2" />
+                  </svg>
+                )}
               </button>
             </div>
           </div>
