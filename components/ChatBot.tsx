@@ -232,6 +232,32 @@ export default function ChatBot() {
     }
   }, [isOpen, scrollToBottom]);
 
+  // Lock body scroll when chatbox is open on mobile to prevent background page scrolling
+  useEffect(() => {
+    if (!isOpen) return;
+
+    const origOverflow = document.body.style.overflow;
+    const origPosition = document.body.style.position;
+    const origTop = document.body.style.top;
+    const origWidth = document.body.style.width;
+    const scrollY = window.scrollY;
+
+    // Lock body scroll
+    document.body.style.overflow = "hidden";
+    document.body.style.position = "fixed";
+    document.body.style.top = `-${scrollY}px`;
+    document.body.style.width = "100%";
+
+    return () => {
+      // Restore body scroll
+      document.body.style.overflow = origOverflow;
+      document.body.style.position = origPosition;
+      document.body.style.top = origTop;
+      document.body.style.width = origWidth;
+      window.scrollTo(0, scrollY);
+    };
+  }, [isOpen]);
+
   // Poll for database sync & Telegram replies when chat is open
   useEffect(() => {
     if (!isOpen || !sessionId) return;
@@ -418,7 +444,7 @@ export default function ChatBot() {
 
       {/* Chat Window */}
       {isOpen && (
-        <div className="fixed inset-0 z-50 flex flex-col overflow-hidden bg-white dark:bg-[#1a1a1e] animate-in fade-in slide-in-from-bottom-4 duration-200 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[calc(100vw-48px)] sm:max-w-[400px] sm:h-[min(600px,calc(100vh-48px))] sm:rounded-2xl sm:border sm:border-zinc-200 sm:dark:border-zinc-800 sm:shadow-2xl"
+        <div className="fixed inset-0 z-50 flex h-[100dvh] flex-col overflow-hidden bg-white dark:bg-[#1a1a1e] overscroll-contain animate-in fade-in slide-in-from-bottom-4 duration-200 sm:inset-auto sm:bottom-6 sm:right-6 sm:w-[calc(100vw-48px)] sm:max-w-[400px] sm:h-[min(600px,calc(100vh-48px))] sm:rounded-2xl sm:border sm:border-zinc-200 sm:dark:border-zinc-800 sm:shadow-2xl"
         >
           {/* Header */}
           <div className="flex items-center justify-between border-b border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#212125] px-4 py-3">
@@ -469,16 +495,14 @@ export default function ChatBot() {
           {/* Messages Area */}
           <div
             ref={messagesContainerRef}
-            className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar"
+            className="flex-1 overflow-y-auto px-4 py-4 space-y-4 custom-scrollbar overscroll-contain"
           >
             {/* Intro message - always shown at the top */}
-            <div className="flex justify-start">
+            <div className="flex flex-col items-start">
+              <span className="text-[11px] font-bold text-blue-500 dark:text-blue-400 mb-1 ml-1">
+                James
+              </span>
               <div className="max-w-[85%] rounded-2xl rounded-bl-md bg-zinc-100 dark:bg-zinc-800 text-foreground px-4 py-2.5 text-sm leading-relaxed text-left space-y-2">
-                <div className="flex items-center gap-1.5 mb-1 text-left">
-                  <span className="text-[11px] font-bold text-blue-500 dark:text-blue-400">
-                    James
-                  </span>
-                </div>
                 <p>Hi there! 👋 I&apos;m James. Thanks for checking out my website!</p>
                 <p>Feel free to ask me anything about my projects, skills, technologies, or experience.</p>
                 <p>Just a quick note: You&apos;re currently chatting with my AI-powered assistant, which can help answer your questions and provide information about me and my work.</p>
@@ -491,10 +515,20 @@ export default function ChatBot() {
             {messages.map((msg) => (
               <div
                 key={msg.id}
-                className={`flex ${
-                  msg.role === "user" ? "justify-end" : "justify-start"
+                className={`flex flex-col ${
+                  msg.role === "user" ? "items-end" : "items-start"
                 }`}
               >
+                {msg.role === "assistant" && (
+                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-1 ml-1">
+                    Chat Bot
+                  </span>
+                )}
+                {msg.role === "james" && (
+                  <span className="text-[11px] font-bold text-blue-500 dark:text-blue-400 mb-1 ml-1">
+                    James
+                  </span>
+                )}
                 <div
                   className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed text-left ${
                     msg.role === "user"
@@ -504,20 +538,6 @@ export default function ChatBot() {
                         : "bg-zinc-100 dark:bg-zinc-800 text-foreground rounded-bl-md"
                   }`}
                 >
-                  {msg.role === "assistant" && (
-                    <div className="flex items-center gap-1.5 mb-1 text-left">
-                      <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400">
-                        Chat Bot
-                      </span>
-                    </div>
-                  )}
-                  {msg.role === "james" && (
-                    <div className="flex items-center gap-1.5 mb-1 text-left">
-                      <span className="text-[11px] font-bold text-blue-500 dark:text-blue-400">
-                        James
-                      </span>
-                    </div>
-                  )}
                   <FormattedMessage
                     content={msg.content}
                     isUser={msg.role === "user"}
@@ -542,7 +562,7 @@ export default function ChatBot() {
           </div>
 
           {/* Input Area */}
-          <div className="border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#212125] px-4 py-3">
+          <div className="border-t border-zinc-200 dark:border-zinc-800 bg-zinc-50 dark:bg-[#212125] px-4 py-3 pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <div className="flex items-end gap-2">
               <button
                 type="button"
