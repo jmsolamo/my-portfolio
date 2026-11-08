@@ -108,6 +108,41 @@ function FormattedMessage({
   );
 }
 
+function formatMessageTime(timestamp: number): string {
+  const date = new Date(timestamp);
+  return date.toLocaleTimeString("en-US", {
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  });
+}
+
+function formatDateLabel(timestamp: number): string {
+  const date = new Date(timestamp);
+  const now = new Date();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+  const msgDay = new Date(date.getFullYear(), date.getMonth(), date.getDate());
+  const diffDays = Math.floor((today.getTime() - msgDay.getTime()) / (1000 * 60 * 60 * 24));
+
+  if (diffDays === 0) return "Today";
+  if (diffDays === 1) return "Yesterday";
+  return date.toLocaleDateString("en-US", {
+    month: "short",
+    day: "numeric",
+    year: date.getFullYear() !== now.getFullYear() ? "numeric" : undefined,
+  });
+}
+
+function isDifferentDay(ts1: number, ts2: number): boolean {
+  const d1 = new Date(ts1);
+  const d2 = new Date(ts2);
+  return (
+    d1.getFullYear() !== d2.getFullYear() ||
+    d1.getMonth() !== d2.getMonth() ||
+    d1.getDate() !== d2.getDate()
+  );
+}
+
 function RobotIcon({ className = "h-5 w-5" }: { className?: string }) {
   return (
     <svg
@@ -516,36 +551,50 @@ export default function ChatBot() {
             </div>
 
             {/* Message list */}
-            {messages.map((msg) => (
-              <div
-                key={msg.id}
-                className={`flex flex-col ${
-                  msg.role === "user" ? "items-end" : "items-start"
-                }`}
-              >
-                {msg.role === "assistant" && (
-                  <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-1 ml-1">
-                    Chat Bot
-                  </span>
-                )}
-                {msg.role === "james" && (
-                  <span className="text-[11px] font-bold text-blue-500 dark:text-blue-400 mb-1 ml-1">
-                    James
-                  </span>
+            {messages.map((msg, idx) => (
+              <div key={msg.id}>
+                {/* Date separator */}
+                {msg.timestamp && (idx === 0 || isDifferentDay(messages[idx - 1].timestamp, msg.timestamp)) && (
+                  <div className="flex items-center justify-center my-3">
+                    <span className="text-[10px] text-zinc-400 dark:text-zinc-500 bg-zinc-100 dark:bg-zinc-800/60 px-2.5 py-0.5 rounded-full">
+                      {formatDateLabel(msg.timestamp)}
+                    </span>
+                  </div>
                 )}
                 <div
-                  className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed text-left ${
-                    msg.role === "user"
-                      ? "bg-[#C1ED00] text-[#212125] rounded-br-md"
-                      : msg.role === "james"
-                        ? "bg-blue-500/10 border border-blue-500/30 text-foreground rounded-bl-md"
-                        : "bg-zinc-100 dark:bg-zinc-800 text-foreground rounded-bl-md"
+                  className={`flex flex-col ${
+                    msg.role === "user" ? "items-end" : "items-start"
                   }`}
                 >
-                  <FormattedMessage
-                    content={msg.content}
-                    isUser={msg.role === "user"}
-                  />
+                  {msg.role === "assistant" && (
+                    <span className="text-[11px] font-semibold text-zinc-500 dark:text-zinc-400 mb-1 ml-1">
+                      Chat Bot
+                    </span>
+                  )}
+                  {msg.role === "james" && (
+                    <span className="text-[11px] font-bold text-blue-500 dark:text-blue-400 mb-1 ml-1">
+                      James
+                    </span>
+                  )}
+                  <div
+                    className={`max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed text-left ${
+                      msg.role === "user"
+                        ? "bg-[#C1ED00] text-[#212125] rounded-br-md"
+                        : msg.role === "james"
+                          ? "bg-blue-500/10 border border-blue-500/30 text-foreground rounded-bl-md"
+                          : "bg-zinc-100 dark:bg-zinc-800 text-foreground rounded-bl-md"
+                    }`}
+                  >
+                    <FormattedMessage
+                      content={msg.content}
+                      isUser={msg.role === "user"}
+                    />
+                  </div>
+                  {msg.timestamp > 0 && (
+                    <span className={`text-[10px] text-zinc-400 dark:text-zinc-500 mt-1 ${msg.role === "user" ? "mr-1" : "ml-1"}`}>
+                      {formatMessageTime(msg.timestamp)}
+                    </span>
+                  )}
                 </div>
               </div>
             ))}

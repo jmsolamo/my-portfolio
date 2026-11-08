@@ -21,12 +21,11 @@ interface ChatHistoryMessage {
 
 /**
  * Generate a chat response using Gemini
- * Uses a single model with retry to avoid burning free-tier rate limits
+ * Uses primary + one fallback model with retry to handle free-tier rate limits
  */
-const MODEL = "gemini-3.5-flash-lite";
-const MODEL_TIMEOUT_MS = 10000;
-const MAX_RETRIES = 2;
-const RETRY_DELAY_MS = 3000;
+const MODELS = ["gemini-3.5-flash-lite", "gemini-3.5-flash"];
+const MODEL_TIMEOUT_MS = 12000;
+const RETRY_DELAY_MS = 4000;
 
 /**
  * Call Gemini with a per-attempt timeout
@@ -53,7 +52,9 @@ async function tryModel(
 
     const text = response.text;
     return text || null;
-  } catch {
+  } catch (error) {
+    const errMsg = error instanceof Error ? error.message : String(error);
+    console.error(`[Gemini] ${model} failed:`, errMsg);
     return null;
   } finally {
     clearTimeout(timer);
@@ -85,15 +86,23 @@ export async function generateChatResponse(
     parts: [{ text: userMessage }],
   });
 
-  // Try with retry — wait between attempts to let rate limit reset
-  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
-    if (attempt > 0) {
-      await delay(RETRY_DELAY_MS);
-    }
-    const result = await tryModel(ai, MODEL, contents);
+  // Try primary model, if rate-limited wait and try fallback
+  for (let i = 0; i < MODELS.length; i++) {
+    const result = await tryModel(ai, MODELS[i], contents);
     if (result) {
       return result;
     }
+    // Wait before trying next model to let rate limit cool down
+    if (i < MODELS.length - 1) {
+      await delay(RETRY_DELAY_MS);
+    }
+  }
+
+  // Last resort: wait and retry primary model once more
+  await delay(RETRY_DELAY_MS);
+  const lastTry = await tryModel(ai, MODELS[0], contents);
+  if (lastTry) {
+    return lastTry;
   }
 
   return "I'm experiencing a bit of traffic right now. Feel free to ask again in a moment, or reach out to me directly at solamojamesmichael@gmail.com!";
