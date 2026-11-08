@@ -4,6 +4,8 @@ import {
   addPendingReply,
   removeMessagesFromSession,
   getExchangeByTelegramId,
+  updateJamesPresence,
+  setJamesOffline,
   type ChatMessage,
 } from "./chat-store";
 import {
@@ -11,6 +13,7 @@ import {
   dbDeleteSession,
   dbDeleteMessages,
   dbSaveMessage,
+  dbSetPresence,
 } from "./db-operations";
 
 // Telegram Bot API helpers
@@ -276,6 +279,8 @@ export async function pollTelegramUpdates(): Promise<void> {
 
       // Handle button clicks (callback_query) from Telegram
       if (update.callback_query) {
+        updateJamesPresence();
+        dbSetPresence(true, false).catch(() => {});
         const cq = update.callback_query;
         const cqData = cq.data || "";
 
@@ -316,13 +321,23 @@ export async function pollTelegramUpdates(): Promise<void> {
 
       const textCommand = msg.text.trim().toLowerCase();
 
-      // Skip standalone commands (only handled by webhook for real-time presence)
-      if (textCommand === "/online" || textCommand === "/offline") {
+      // Handle /online and /offline commands
+      if (textCommand === "/online") {
+        updateJamesPresence(true, true);
+        dbSetPresence(true, true).catch(() => {});
+        continue;
+      }
+      if (textCommand === "/offline") {
+        setJamesOffline();
+        dbSetPresence(false, true).catch(() => {});
         continue;
       }
 
       // Only process replies to bot messages
       if (msg.reply_to_message?.message_id) {
+        // James replied — mark as online
+        updateJamesPresence();
+        dbSetPresence(true, false).catch(() => {});
         const replyToId = String(msg.reply_to_message.message_id);
         const quotedText = msg.reply_to_message.text || "";
         let targetSessionId = getSessionByTelegramReply(replyToId);

@@ -237,27 +237,54 @@ export async function dbSetPresence(
   }
 }
 
+/**
+ * Check if current time is within James's active hours (8 AM – 8 PM Philippines time)
+ */
+function isWithinActiveHours(): boolean {
+  const now = new Date();
+  // Get current hour in Asia/Manila timezone
+  const phHour = parseInt(
+    new Intl.DateTimeFormat("en-US", {
+      timeZone: "Asia/Manila",
+      hour: "numeric",
+      hour12: false,
+    }).format(now),
+    10,
+  );
+  return phHour >= 8 && phHour < 20; // 8 AM to 8 PM
+}
+
 export async function dbGetPresence(): Promise<boolean> {
   try {
     const db = await getDatabase();
     const doc = await db
       .collection<DbPresenceDoc>("settings")
       .findOne({ _id: "presence" });
-    if (!doc) return false;
 
-    // If James explicitly turned it on or off
-    if (doc.manualOverride) {
-      if (!doc.isOnline) return false;
-      // Auto-revert manual online after 2 hours without activity
+    // If James manually set /offline — respect it
+    if (doc?.manualOverride && !doc.isOnline) {
+      return false;
+    }
+
+    // If James manually set /online — respect it (expires after 2 hours)
+    if (doc?.manualOverride && doc.isOnline) {
       const diff = Date.now() - new Date(doc.lastSeen).getTime();
       return diff < 2 * 60 * 60 * 1000;
     }
 
-    // Auto presence from recent activity (15 minutes)
-    const diff = Date.now() - new Date(doc.lastSeen).getTime();
-    return doc.isOnline && diff < 15 * 60 * 1000;
+    // If James interacted with the bot recently (15 min) — online regardless of hours
+    if (doc?.isOnline) {
+      const diff = Date.now() - new Date(doc.lastSeen).getTime();
+      if (diff < 15 * 60 * 1000) {
+        return true;
+      }
+    }
+
+    // Default: auto-online during active hours (8 AM – 8 PM PHT)
+    return isWithinActiveHours();
   } catch {
-    return false;
+    // Fallback to time-based if DB fails
+    return isWithinActiveHours();
   }
 }
 
