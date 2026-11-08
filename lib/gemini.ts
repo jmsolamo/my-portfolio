@@ -21,22 +21,15 @@ interface ChatHistoryMessage {
 
 /**
  * Generate a chat response using Gemini
- * The system prompt restricts it to only answer about James
+ * Uses a single model with retry to avoid burning free-tier rate limits
  */
-// Primary and fallback models — fastest first
-const CANDIDATE_MODELS = [
-  "gemini-3.5-flash-lite", // fastest, most reliable
-  "gemini-3.8-flash",
-  "gemini-3.6-flash",
-  "gemini-3.5-flash",
-];
-
-// Timeout per model attempt (seconds)
-const MODEL_TIMEOUT_MS = 8000;
+const MODEL = "gemini-3.5-flash-lite";
+const MODEL_TIMEOUT_MS = 10000;
+const MAX_RETRIES = 2;
+const RETRY_DELAY_MS = 3000;
 
 /**
- * Call Gemini with a per-attempt timeout so a slow/overloaded model
- * doesn't block the entire response for 30+ seconds.
+ * Call Gemini with a per-attempt timeout
  */
 async function tryModel(
   ai: GoogleGenAI,
@@ -67,6 +60,10 @@ async function tryModel(
   }
 }
 
+function delay(ms: number): Promise<void> {
+  return new Promise((resolve) => setTimeout(resolve, ms));
+}
+
 export async function generateChatResponse(
   userMessage: string,
   history: ChatHistoryMessage[] = [],
@@ -88,9 +85,12 @@ export async function generateChatResponse(
     parts: [{ text: userMessage }],
   });
 
-  // Try each model with a fast timeout — first success wins
-  for (const model of CANDIDATE_MODELS) {
-    const result = await tryModel(ai, model, contents);
+  // Try with retry — wait between attempts to let rate limit reset
+  for (let attempt = 0; attempt <= MAX_RETRIES; attempt++) {
+    if (attempt > 0) {
+      await delay(RETRY_DELAY_MS);
+    }
+    const result = await tryModel(ai, MODEL, contents);
     if (result) {
       return result;
     }

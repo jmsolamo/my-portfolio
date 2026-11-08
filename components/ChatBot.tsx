@@ -236,6 +236,10 @@ export default function ChatBot() {
   useEffect(() => {
     if (!isOpen) return;
 
+    // Only lock scroll on mobile (< 640px) where chatbox is full-screen
+    const mq = window.matchMedia("(max-width: 639px)");
+    if (!mq.matches) return;
+
     const origOverflow = document.body.style.overflow;
     const origPosition = document.body.style.position;
     const origTop = document.body.style.top;
